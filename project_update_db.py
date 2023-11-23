@@ -80,23 +80,3 @@ for data in actor_data:
     myCursor.execute("INSERT INTO actor(id, movie_id, actor) VALUES (%s, %s, %s)", data)
 mydb.commit()
 
-
-# language table
-language_data = csv.reader(open('./data/language.csv', encoding='UTF-8'))
-language_header = next(language_data)
-
-myCursor.execute("CREATE TABLE language(id INT PRIMARY KEY,movie_id INT, language VARCHAR(255), FOREIGN KEY (movie_id) REFERENCES movies(movie_id))")
-for data in language_data:
-    #data = data[1:]
-    myCursor.execute("INSERT INTO language(id, movie_id, language) VALUES (%s, %s, %s)", data)
-mydb.commit()
-
-# imdb table
-imdb_data = csv.reader(open('./data/imdb.csv', encoding='UTF-8'))
-imdb_header = next(imdb_data)
-
-myCursor.execute("CREATE TABLE imdb_rating(movie_id INT PRIMARY KEY, imdb_score FLOAT, FOREIGN KEY (movie_id) REFERENCES movies(movie_id))")
-for data in imdb_data:
-    data = data[1:]
-    myCursor.execute("INSERT INTO imdb_rating(movie_id, imdb_score) VALUES (%s, %s)", data)
-mydb.commit()
