@@ -1,7 +1,7 @@
 import csv
 import mysql.connector
 
-# USe this code only first you create your database
+# Use this code only first you create your database
 # mydb = mysql.connector.connect(
 #     host = "localhost",
 #     user= "root",

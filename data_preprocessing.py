@@ -4,12 +4,10 @@ from tqdm import tqdm
 import ast
 
 # get csv file to dataframe
-amazon_movies = pd.read_csv("./data/amazon_prime_titles.csv")
-disney_movies = pd.read_csv("./data/disney_plus_titles.csv")
-netflix_movies = pd.read_csv("./data/netflix_titles.csv")
-hulu_movies = pd.read_csv("./data/hulu_titles.csv")
-    
-        
+amazon_movies = pd.read_csv("./raw_data/amazon_prime_titles.csv")
+disney_movies = pd.read_csv("./raw_data/disney_plus_titles.csv")
+netflix_movies = pd.read_csv("./raw_data/netflix_titles.csv")
+hulu_movies = pd.read_csv("./raw_data/hulu_titles.csv")
 
 # add ott_service column
 netflix_movies['ott_service'] = 'netflix'
@@ -22,7 +20,6 @@ movies = pd.concat([netflix_movies, disney_movies, amazon_movies, hulu_movies],i
 movies = movies[movies['type']=='Movie']
 movies = movies.reset_index(drop=True)
 movies['show_id'] = movies.index
-
 
 # drop unusing columns
 processed_movies = movies.drop(columns=['type', 'cast', 'country', 'listed_in','ott_service', 'description'])
@@ -55,7 +52,6 @@ for idx, row in country_movies.iterrows():
     for country in row['country'].split(","):
         country_lst.append([row['show_id'], country.strip()])
 country = pd.DataFrame(country_lst, columns=['movie_id', 'country'])
-
 
 # save dataframes to csv file
 processed_movies.to_csv('./data/movies.csv')
