@@ -1,6 +1,8 @@
 import tkinter as tk
 from tkinter import ttk
+import tkinter.messagebox as messagebox
 import sqlite3
+import random
 
 def filter_by_rating(rating):
     toggle_button_color(rating_button[rating])
@@ -14,6 +16,14 @@ def filter_by_ott(ott_service):
 def toggle_button_color(button):
     current_bg = button.cget('bg')
     button.config(bg=button.cget('fg'), fg=current_bg)
+
+def search_autocomplete(event):
+    query = search_var.get().strip()
+
+    if query:
+        result_label.config(text="Searched Result")
+    else:
+        result_label.config(text="Recommendation for You")
 
 root = tk.Tk()
 root.title("HAND-list")
@@ -39,10 +49,11 @@ ttk.Separator(title_frame, orient=tk.HORIZONTAL).pack(fill='x', pady=7)
 search_var = tk.StringVar()
 search_entry = tk.Entry(title_frame, textvariable=search_var, width=30, font=('Helvetica', 14, 'bold'))
 search_entry.pack(side=tk.LEFT)
+search_entry.bind('<KeyRelease>', search_autocomplete)
 
-# Search Button
+# Update the command of the Search Button to use the search function
 search_button = tk.Button(title_frame, text="Search", bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Helvetica', 12, 'bold'))
-search_button.pack(side=tk.LEFT, padx=(10, 0))  # Adjusted padx for spacing
+search_button.pack(side=tk.LEFT, padx=(10, 0))
 
 # Left Side
 left_frame = tk.Frame(root, bg='black', relief=tk.RAISED)
@@ -104,11 +115,15 @@ for service in ott_list:
     ott_button[service].pack()
 
 # Right Side
-result_label = tk.Label(root, text="Recommendation for You", font=('Helvetica', 14, 'bold'), bg='black', fg='white')
+right_frame = tk.Frame(root, bg='black')
+right_frame.pack(side=tk.RIGHT, padx=50)
+
+# Result Box
+result_label = tk.Label(right_frame, text="Recommendation for You", font=('Helvetica', 14, 'bold'), bg='black', fg='white')
 result_label.pack(pady=10)
 
 # Result Box
-result_text = tk.Text(root, height=35, width=50)
+result_text = tk.Text(right_frame, height=35, width=50)
 result_text.pack()
 result_text.config(state=tk.DISABLED)
 
