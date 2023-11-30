@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 import tkinter.messagebox as messagebox
 import sqlite3
-import random
 
 def filter_by_rating(rating):
     toggle_button_color(rating_button[rating])
