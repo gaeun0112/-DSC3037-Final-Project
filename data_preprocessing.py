@@ -1,140 +1,144 @@
-def data_preprocessing():
-    import pandas as pd
-    import numpy as np
-    from tqdm import tqdm
-    from datetime import datetime as dt
-    import re
-    
-    
-    # get csv file to dataframe
-    amazon_movies = pd.read_csv("./-DSC3037-Final-Project/raw_data/amazon_prime_titles.csv")
-    disney_movies = pd.read_csv("./-DSC3037-Final-Project/raw_data/disney_plus_titles.csv")
-    hulu_movies = pd.read_csv("./-DSC3037-Final-Project/raw_data/hulu_titles.csv")
-    netflix_movies = pd.read_csv("./-DSC3037-Final-Project/raw_data/netflix_titles.csv")
-    
-    
-    # add ott_service column before merging
-    amazon_movies['ott_id'] = 1
-    disney_movies['ott_id'] = 2
-    hulu_movies['ott_id'] = 3
-    netflix_movies['ott_id'] = 4
-    
-    
-    # concat 3 ott dataframes
-    movies = pd.concat([netflix_movies,disney_movies,amazon_movies,hulu_movies], ignore_index=True)
-    movies = movies[movies['type']=='Movie'] # this is movie program
-    movies = movies.reset_index(drop=True)
+import csv
+import mysql.connector
+from datetime import datetime
 
 
-    # pre-processing
-    movies = movies.rename(columns={'show_id': 'movie_id'})
-    movies.movie_id = pd.to_numeric(movies.index + 1)
-    movies = movies.rename(columns={'date_added': 'last_update'})
-    movies.last_update = movies.last_update.fillna('January 1, 1970')
-    movies.last_update = pd.to_datetime(movies.last_update).dt.strftime('%Y%m%d')
-    movies.last_update = pd.to_numeric(movies.last_update)
-    movies = movies.fillna('no info')
-    movies.duration = pd.to_numeric(movies.duration.apply(lambda x: '000' if x == 'no info' else x.replace(' min', '')))
-    movies.release_year = movies.release_year.apply(lambda x: '0000' if x == 'no info' else x)
-    movies.rating = movies.rating.apply(lambda x: x.replace('TV-MA', 'R').replace('16+', 'R').replace('TV-14', 'PG-13').replace('ALL', 'G').replace('18+', 'NC-17').replace('13+', 'PG').replace('TV-G', 'G').replace('7+', 'G').replace('TV-Y', 'G').replace('G7', 'G').replace('G-FV', 'G').replace('TV-PG', 'PG').replace('TV-Y', 'G').replace('TV-Y7', 'G'))
-    movies.rating = movies.rating.apply(lambda x: 'no info' if x not in ['R', 'PG-13', 'PG', 'G', 'NC-17'] else x)
+# Use this code only first you create your database
+mydb = mysql.connector.connect(
+    host = "localhost",
+    user= "root",
+    passwd = "5789"  
+)
+mycursor = mydb.cursor()
+mycursor.execute("CREATE DATABASE IF NOT EXISTS db_project")
+
+def connectDB(db_use):
+    mydb = mysql.connector.connect(
+        host = "localhost",
+        user= "root",
+        passwd = "5789",
+        database = db_use
+    )
+    mycursor = mydb.cursor(prepared=True)
+    return mydb, mycursor
+
+mydb, myCursor = connectDB("db_project")
 
 
-    # for ott table
-    ott_service = pd.DataFrame({
-        'ott_id': [1, 2, 3, 4],
-        'ott_service': ['amazon_prime','netflix','hulu','disney_plus'],
-        'last_update':[movies['last_update'].max()]*4                      
-        })
-    
-    
-    # for director table
-    tmp = pd.melt(movies.director.str.split(', ', expand=True).reset_index(), id_vars='index', var_name='tmp', value_name='director_name')
-    tmp = tmp.drop(columns=['tmp']).rename(columns={'index':'movie_id'}).dropna()
-    tmp.director_name = tmp.director_name.apply(lambda x: x.lower().replace('_',' ').lstrip().replace('.','. ').replace('  ',' ').replace(' director','').replace('knigjht','knight').replace('knioght','knight'))
-    tmp.director_name = tmp.director_name.apply(lambda x: 'no info' if 'validcapi' in x or 'test' in x else x)
-    tmp.director_name = tmp.director_name.apply(lambda x: 'alex winter' if 'director alex winter' in x else x)
-    tmp.director_name = tmp.director_name.apply(lambda x: 'gigi saul guerrero' if 'director gigi saul guerrero' in x else x)
-    tmp.director_name = tmp.director_name.apply(lambda x: 'jennifer kent' if 'director jennifer kent' in x else x)
-    tmp.director_name = tmp.director_name.apply(lambda x: 'kids 1st tv' if 'kids 1st tv' in x else x)
-    tmp.director_name = tmp.director_name.apply(lambda x: 'no info' if '1' == x else x)
-    tmp = tmp.drop_duplicates(subset=['movie_id', 'director_name'], keep='first')
-    tmp.movie_id+=1
-    tmp = pd.merge(tmp, movies[['movie_id','last_update']], on='movie_id', how='left')
-    director_tmp = pd.Series(sorted(list(set(tmp.director_name))))
-    director = pd.DataFrame({'director_id':director_tmp.index+1,'director_name':director_tmp,'last_update':[movies.last_update.max()]*len(director_tmp)})
+# movies table
+myCursor.execute("CREATE TABLE IF NOT EXISTS movies(movie_id INT PRIMARY KEY, title VARCHAR(255), last_update DATE, release_year SMALLINT, rating VARCHAR(255), duration SMALLINT, ott_id SMALLINT, description TEXT)")
+with open('./DSC3037_23_2_RDBMS/for_use/movies.csv', encoding='UTF-8') as csvfile:
+    movies_data = csv.reader(csvfile)
+    header = next(movies_data)  # Skip header
+    for data in movies_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO movies(movie_id, title, last_update, release_year, rating, duration, ott_id, description) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)", (int(data[1]), data[2], last_update, int(data[4]), data[5], int(data[6]), int(data[7]), data[8]))
+mydb.commit()
 
 
-    # for direct table
-    direct = pd.merge(tmp, director[['director_id','director_name']], on='director_name')
-    direct = direct.sort_values(by=['movie_id']).reset_index(drop=True).drop(columns=['director_name'])
-    direct = direct[['movie_id','director_id','last_update']]
+# ott_service table
+myCursor.execute("CREATE TABLE IF NOT EXISTS ott_service (ott_id INT PRIMARY KEY, ott_service VARCHAR(255), last_update DATE, FOREIGN KEY (ott_id) REFERENCES movies(ott_id))")
+
+with open('./DSC3037_23_2_RDBMS/for_use/ott_service.csv', encoding='UTF-8') as csvfile:
+    ott_data = csv.reader(csvfile)
+    header = next(ott_data)  # Skip header
+    for data in ott_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO ott_service (ott_id, ott_service, last_update) VALUES (%s, %s, %s)", (int(data[1]), data[2], last_update))
+mydb.commit()
 
 
-    # for actor table
-    ban_list = ['','1','2','3','A','Test Actor 1','Test Actor 2','Test Actor1 US']
-    tmp = pd.melt(movies.cast.str.split(', ', expand=True).reset_index(), id_vars='index', var_name='tmp', value_name='actor_name')
-    tmp = tmp.drop(columns=['tmp']).rename(columns={'index':'movie_id'}).dropna()
-    tmp.actor_name = tmp.actor_name.apply(lambda x: 'no info' if x in ban_list else x.lower().replace('\'', ' ').replace('\"', ' ').lstrip().replace('  ',' '))
-    tmp.actor_name = tmp.actor_name.apply(lambda x: 'samantha bond' if 'samantha bond' in x else x)
-    tmp = tmp.drop_duplicates(subset=['movie_id', 'actor_name'], keep='first')
-    tmp.movie_id+=1
-    tmp = pd.merge(tmp, movies[['movie_id','last_update']], on='movie_id', how='left')
-    actor_tmp = pd.Series(sorted(list(set(tmp.actor_name))))
-    actor = pd.DataFrame({'actor_id':actor_tmp.index+1,'actor_name':actor_tmp,'last_update':[movies.last_update.max()]*len(actor_tmp)})
-    
-    
-    # for cast table
-    cast = pd.merge(tmp, actor[['actor_id','actor_name']], on='actor_name')
-    cast = cast.sort_values(by=['movie_id']).reset_index(drop=True).drop(columns=['actor_name'])
-    cast = cast[['movie_id','actor_id','last_update']]
+# director table
+myCursor.execute("CREATE TABLE IF NOT EXISTS director (director_id INT PRIMARY KEY, director_name VARCHAR(255), last_update DATE)")
+
+with open('./DSC3037_23_2_RDBMS/for_use/director.csv', encoding='UTF-8') as csvfile:
+    director_data = csv.reader(csvfile)
+    header = next(director_data)  # Skip header
+    for data in director_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO director (director_id, director_name, last_update) VALUES (%s, %s, %s)", (int(data[1]), data[2], last_update))
+mydb.commit()
 
 
-    # for genre table
-    tmp = pd.melt(movies.listed_in.str.split(', ', expand=True).reset_index(), id_vars='index', var_name='tmp', value_name='genre_name')
-    tmp = tmp.drop(columns=['tmp']).rename(columns={'index':'movie_id'}).dropna()
-    tmp.genre_name = tmp.genre_name.apply(lambda x: x.lower().lstrip().replace(' features','').replace(' film','').replace(' movies','').replace('anime','animation').replace('/',' and ').replace('-',' and ').replace('and','&').replace('classics','classic').replace('comedies','comedy').replace('dramas','drama').replace('documentaries','documentary').replace('romantic','romance').replace('and culture','culture'))
-    tmp = tmp.drop_duplicates(subset=['movie_id', 'genre_name'], keep='first')
-    tmp.movie_id+=1
-    tmp = pd.merge(tmp, movies[['movie_id','last_update']], on='movie_id', how='left')
-    genre_tmp = pd.Series(sorted(list(set(tmp.genre_name))))
-    genre = pd.DataFrame({'genre_id':genre_tmp.index+1, 'genre_name':genre_tmp, 'last_update':[movies.last_update.max()]*len(genre_tmp)})
-    
-    
-    # for movies_genre table
-    movies_genre = pd.merge(tmp, genre[['genre_id','genre_name']], on='genre_name')
-    movies_genre = movies_genre.sort_values(by=['movie_id']).reset_index(drop=True).drop(columns=['genre_name'])
-    movies_genre = movies_genre[['movie_id','genre_id','last_update']]
+# direct table
+myCursor.execute("CREATE TABLE IF NOT EXISTS direct (movie_id INT, director_id INT, last_update DATE, PRIMARY KEY (movie_id, director_id), FOREIGN KEY (movie_id) REFERENCES movies(movie_id), FOREIGN KEY (director_id) REFERENCES director(director_id))")
+
+with open('./DSC3037_23_2_RDBMS/for_use/direct.csv', encoding='UTF-8') as csvfile:
+    director_data = csv.reader(csvfile)
+    header = next(director_data)  # Skip header
+    for data in director_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO direct (movie_id, director_id, last_update) VALUES (%s, %s, %s)", (int(data[1]), int(data[2]), last_update))
+mydb.commit()
 
 
-    # country table
-    tmp = pd.melt(movies.country.str.split(', ', expand=True).reset_index(), id_vars='index', var_name='tmp', value_name='country_name')
-    tmp = tmp.drop(columns=['tmp']).rename(columns={'index':'movie_id'}).dropna().drop_duplicates(subset=['movie_id', 'country_name'], keep='first')
-    tmp.movie_id+=1
-    tmp = pd.merge(tmp, movies[['movie_id','last_update']], on='movie_id', how='left')
-    tmp.country_name = tmp.country_name.apply(lambda x: 'no info' if len(x) < 3 else x.replace(',',''))
-    country_tmp = pd.Series(sorted(list(set(tmp.country_name))))
-    country = pd.DataFrame({'country_id':country_tmp.index+1, 'country_name':country_tmp, 'last_update':[movies.last_update.max()]*len(country_tmp)})
+# actor table
+myCursor.execute("CREATE TABLE IF NOT EXISTS actor (actor_id INT PRIMARY KEY, actor_name VARCHAR(255), last_update DATE)")
+
+with open('./DSC3037_23_2_RDBMS/for_use/actor.csv', encoding='UTF-8') as csvfile:
+    actor_data = csv.reader(csvfile)
+    header = next(actor_data)  # Skip header
+    for data in actor_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO actor (actor_id, actor_name, last_update) VALUES (%s, %s, %s)", (int(data[1]), data[2], last_update))
+mydb.commit()
 
 
-    # for movies_country table
-    movies_country = pd.merge(tmp, country[['country_id','country_name']], on='country_name')
-    movies_country = movies_country.sort_values(by=['movie_id']).reset_index(drop=True).drop(columns=['country_name'])
-    movies_country = movies_country[['movie_id','country_id','last_update']]
+# cast table
+myCursor.execute("CREATE TABLE IF NOT EXISTS cast (movie_id INT, actor_id INT, last_update DATE, PRIMARY KEY (movie_id, actor_id), FOREIGN KEY (movie_id) REFERENCES movies(movie_id), FOREIGN KEY (actor_id) REFERENCES actor(actor_id))")
+
+with open('./DSC3037_23_2_RDBMS/for_use/cast.csv', encoding='UTF-8') as csvfile:
+    cast_data = csv.reader(csvfile)
+    header = next(cast_data)  # Skip header
+    for data in cast_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO cast (movie_id, actor_id, last_update) VALUES (%s, %s, %s)", (int(data[1]), int(data[2]), last_update))
+mydb.commit()
 
 
-    # drop unusing columns
-    processed_movies = movies.drop(columns=['type','director','cast','country','listed_in'])
+# genre table
+myCursor.execute("CREATE TABLE IF NOT EXISTS genre (genre_id INT PRIMARY KEY, genre_name VARCHAR(255), last_update DATE)")
+
+with open('./DSC3037_23_2_RDBMS/for_use/genre.csv', encoding='UTF-8') as csvfile:
+    genre_data = csv.reader(csvfile)
+    header = next(genre_data)  # Skip header
+    for data in genre_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO genre (genre_id, genre_name, last_update) VALUES (%s, %s, %s)", (int(data[1]), data[2], last_update))
+mydb.commit()
 
 
-    # save dataframes to csv file
-    processed_movies.to_csv('./-DSC3037-Final-Project/for_use/movies.csv')
-    ott_service.to_csv('./-DSC3037-Final-Project/for_use/ott_service.csv')
-    director.to_csv('./-DSC3037-Final-Project/for_use/director.csv')
-    direct.to_csv('./-DSC3037-Final-Project/for_use/direct.csv')
-    actor.to_csv('./-DSC3037-Final-Project/for_use/actor.csv')
-    cast.to_csv('./-DSC3037-Final-Project/for_use/cast.csv')
-    genre.to_csv('./-DSC3037-Final-Project/for_use/genre.csv')
-    movies_genre.to_csv('./-DSC3037-Final-Project/for_use/movies_genre.csv')
-    country.to_csv('./-DSC3037-Final-Project/for_use/country.csv')
-    movies_country.to_csv('./-DSC3037-Final-Project/for_use/movies_country.csv')
+# movies_genre table
+myCursor.execute("CREATE TABLE IF NOT EXISTS movies_genre (movie_id INT, genre_id INT, last_update DATE, PRIMARY KEY (movie_id, genre_id), FOREIGN KEY (movie_id) REFERENCES movies(movie_id), FOREIGN KEY (genre_id) REFERENCES genre(genre_id))")
+
+with open('./DSC3037_23_2_RDBMS/for_use/movies_genre.csv', encoding='UTF-8') as csvfile:
+    movies_genre_data = csv.reader(csvfile)
+    header = next(movies_genre_data)  # Skip header
+    for data in movies_genre_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO movies_genre (movie_id, genre_id, last_update) VALUES (%s, %s, %s)", (int(data[1]), int(data[2]), last_update))
+mydb.commit()  
+
+
+# country table
+myCursor.execute("CREATE TABLE IF NOT EXISTS country (country_id INT PRIMARY KEY, country_name VARCHAR(255), last_update DATE)")
+
+with open('./DSC3037_23_2_RDBMS/for_use/country.csv', encoding='UTF-8') as csvfile:
+    country_data = csv.reader(csvfile)
+    header = next(country_data)  # Skip header
+    for data in country_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO country (country_id, country_name, last_update) VALUES (%s, %s, %s)", (int(data[1]), data[2], last_update))
+mydb.commit()
+
+
+# movies_country table
+myCursor.execute("CREATE TABLE IF NOT EXISTS movies_country (movie_id INT, country_id INT, last_update DATE, PRIMARY KEY (movie_id, country_id), FOREIGN KEY (movie_id) REFERENCES movies(movie_id), FOREIGN KEY (country_id) REFERENCES country(country_id))")
+
+with open('./DSC3037_23_2_RDBMS/for_use/movies_genre.csv', encoding='UTF-8') as csvfile:
+    movies_country_data = csv.reader(csvfile)
+    header = next(movies_country_data)  # Skip header
+    for data in movies_country_data:
+        last_update = datetime.strptime(data[3], '%Y%m%d').date()
+        myCursor.execute("INSERT INTO movies_country (movie_id, country_id, last_update) VALUES (%s, %s, %s)", (int(data[1]), int(data[2]), last_update))
+mydb.commit()

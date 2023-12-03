@@ -1,129 +1,335 @@
 import tkinter as tk
 from tkinter import ttk
 import mysql.connector
+import tkinter.messagebox as messagebox
 import random
 
 conn = mysql.connector.connect(
     host="localhost",
     user="root",
     password="5789",
-    database="db_project"  # Change to your database name
+    database="db_project"
 )
 cursor = conn.cursor()
 
+filter_settings = {
+    'categories': set(),
+    'rating': [],
+    'year': [],
+    'ott': []
+}
+
 def filter_by_rating(rating):
     toggle_button_color(rating_button[rating])
+    filter_settings['rating'] = [rating for rating in rating_names if rating_button[rating].cget('bg') == 'black']
 
 def filter_by_year(year):
     toggle_button_color(year_button[year])
+    filter_settings['year'] = [year for year in year_buttons if year_button[year].cget('bg') == 'black']
 
 def filter_by_ott(ott_service):
     toggle_button_color(ott_button[ott_service])
+    filter_settings['ott'] = [service for service in ott_list if ott_button[service].cget('bg') == 'black']
 
 def toggle_button_color(button):
     current_bg = button.cget('bg')
     button.config(bg=button.cget('fg'), fg=current_bg)
 
-def execute_query_and_display_results(query, label_text):
-    result_label.config(text=label_text)
+def generate_recommendations(limit=10):
+    global filter_settings
+
+    where_conditions = []
+
+    if filter_settings['rating']:
+        where_conditions.append(f"m.rating IN ({','.join(map(repr, filter_settings['rating']))})")
+
+    if filter_settings['year']:
+        year_ranges = {
+            '1900s': (1971, 1999),
+            '2000s': (2000, 2009),
+            '2010s': (2010, 2019),
+            '2020s': (2020, 2029),
+        }
+        year_conditions = []
+        for year_category in filter_settings['year']:
+            start_year, end_year = year_ranges.get(year_category, (0, 0))
+            year_conditions.append(f"m.release_year BETWEEN {start_year} AND {end_year}")
+        where_conditions.append("(" + " OR ".join(year_conditions) + ")")
+
+    if filter_settings['ott']:
+        where_conditions.append(f"ott_service.ott_service IN ({','.join(map(repr, filter_settings['ott']))})")
+
+    where_clause = " AND ".join(where_conditions)
+    where_clause = f"WHERE {where_clause}" if where_clause else ""
+
+    sql_query = f"""
+        SELECT DISTINCT m.movie_id, m.title,
+                        GROUP_CONCAT(DISTINCT director.director_name SEPARATOR ', ') AS directors,
+                        GROUP_CONCAT(DISTINCT actor.actor_name SEPARATOR ', ') AS actors,
+                        m.release_year, m.rating, m.duration, ott_service.ott_service,
+                        GROUP_CONCAT(DISTINCT genre.genre_name SEPARATOR ', ') AS genres
+        FROM movies m
+        LEFT JOIN direct ON m.movie_id = direct.movie_id
+        LEFT JOIN director ON direct.director_id = director.director_id
+        LEFT JOIN cast ON m.movie_id = cast.movie_id
+        LEFT JOIN actor ON cast.actor_id = actor.actor_id
+        LEFT JOIN ott_service ON m.ott_id = ott_service.ott_id
+        LEFT JOIN movies_genre ON m.movie_id = movies_genre.movie_id
+        LEFT JOIN genre ON movies_genre.genre_id = genre.genre_id
+        {where_clause}
+        GROUP BY m.movie_id
+        ORDER BY RAND()  -- Random order
+        LIMIT {limit}
+    """
+
+    cursor.execute(sql_query)
+    result = cursor.fetchall()
+
     result_text.config(state=tk.NORMAL)
-    result_text.delete(1.0, tk.END)
+    result_text.delete("1.0", tk.END)
 
-    cursor.execute(query)
-    results = cursor.fetchall()
+    for row in result:
+        movie_id = row[0]
+        title = row[1]
+        directors = row[2]
+        actors = row[3]
+        genres = row[8]
+        release_year = row[4]
+        rating = row[5]
+        duration = row[6]
+        ott_service = row[7]
 
-    if results:
-        for result in results:
-            display_result(result)
-    else:
-        result_text.insert(tk.END, "No results found.")
+        result_text.config(state=tk.NORMAL)
 
-    result_text.config(state=tk.DISABLED)
+        result_text.insert(tk.END, f"Title: {title}\n"
+                                f"Directors: {directors}\n"
+                                f"Actors: {actors}\n"
+                                f"Genres: {genres}\n"
+                                f"Release Year: {release_year}\n"
+                                f"Rating: {rating}\n"
+                                f"Duration: {duration} minutes\n"
+                                f"OTT Service: {ott_service}\n")
 
-def search_autocomplete(event):
-    query = search_var.get().strip()
-
-    if query:
-        search_query = f"SELECT m.title, GROUP_CONCAT(DISTINCT d.director_name) AS director_names, " \
-                       f"GROUP_CONCAT(DISTINCT a.actor_name) AS actor_names, " \
-                       f"GROUP_CONCAT(DISTINCT g.genre_name) AS genre_names, " \
-                       f"GROUP_CONCAT(DISTINCT c.country_name) AS country_names, " \
-                       f"m.rating, GROUP_CONCAT(DISTINCT o.ott_service) AS ott_names, " \
-                       f"m.release_year " \
-                       f"FROM movies m " \
-                       f"LEFT JOIN direct dr ON m.movie_id = dr.movie_id " \
-                       f"LEFT JOIN director d ON dr.director_id = d.director_id " \
-                       f"LEFT JOIN cast ca ON m.movie_id = ca.movie_id " \
-                       f"LEFT JOIN actor a ON ca.actor_id = a.actor_id " \
-                       f"LEFT JOIN movies_genre mg ON m.movie_id = mg.movie_id " \
-                       f"LEFT JOIN genre g ON mg.genre_id = g.genre_id " \
-                       f"LEFT JOIN movies_country mc ON m.movie_id = mc.movie_id " \
-                       f"LEFT JOIN country c ON mc.country_id = c.country_id " \
-                       f"LEFT JOIN ott_service o ON m.movie_id = o.movie_id " \
-                       f"WHERE m.title LIKE '%{query}%' OR " \
-                       f"d.director_name LIKE '%{query}%' OR " \
-                       f"a.actor_name LIKE '%{query}%' OR " \
-                       f"g.genre_name LIKE '%{query}%'" \
-                       f"GROUP BY m.title, m.rating, m.release_year "
-        execute_query_and_display_results(search_query, "Search Results")
-    else:
-        fetch_recommendations()
-
-def fetch_recommendations():
-    recommendation_query = f"SELECT m.title, GROUP_CONCAT(DISTINCT d.director_name) AS director_names, " \
-                           f"GROUP_CONCAT(DISTINCT a.actor_name) AS actor_names, " \
-                           f"GROUP_CONCAT(DISTINCT g.genre_name) AS genre_names, " \
-                           f"GROUP_CONCAT(DISTINCT c.country_name) AS country_names, " \
-                           f"m.rating, GROUP_CONCAT(DISTINCT o.ott_service) AS ott_names, " \
-                           f"m.release_year " \
-                           f"FROM movies m " \
-                           f"JOIN direct dr ON m.movie_id = dr.movie_id " \
-                           f"JOIN director d ON dr.director_id = d.director_id " \
-                           f"JOIN cast ca ON m.movie_id = ca.movie_id " \
-                           f"JOIN actor a ON ca.actor_id = a.actor_id " \
-                           f"JOIN movies_genre mg ON m.movie_id = mg.movie_id " \
-                           f"JOIN genre g ON mg.genre_id = g.genre_id " \
-                           f"JOIN movies_country mc ON m.movie_id = mc.movie_id " \
-                           f"JOIN country c ON mc.country_id = c.country_id " \
-                           f"JOIN ott_service o ON m.movie_id = o.movie_id " \
-                           f"GROUP BY m.title, m.rating, m.release_year "
-    execute_query_and_display_results(recommendation_query, "Recommended Movies")
-
-def display_result(result):
-    movie_title, director_names, actor_names, genre_names, country_names, rating, ott_names, release_year = result
-    actors_list = actor_names.split(',')[:3]
-    directors_list = director_names.split(',')[:3]
-    genres_list = genre_names.split(',')[:3]
-    countries_list = country_names.split(',')[:3]
-
-    result_text.insert(tk.END, f"Movie Title: {movie_title}\n"
-                               f"Directors: {', '.join(directors_list)}\n"
-                               f"Actors: {', '.join(actors_list)}\n"
-                               f"Genres: {', '.join(genres_list)}\n"
-                               f"Countries: {', '.join(countries_list)}\n"
-                               f"Rating: {rating}\n"
-                               f"OTT Services: {ott_names}\n"
-                               f"Release Year: {release_year}\n\n")
+        detail_button = tk.Button(result_text, text="Detail", command=lambda mid=movie_id: open_detail_window(mid))
+        result_text.window_create(tk.END, window=detail_button)
+        result_text.insert(tk.END, "\n\n")
 
     result_text.config(state=tk.DISABLED)
 
-def randomize_recommendation():
-    global all_recommendations
+def search_movies():
+    global filter_settings
+    search_query = search_var.get().strip()
+    selected_categories_list = list(filter_settings['categories'])
+    selected_rating = filter_settings['rating']
+    selected_year = filter_settings['year']
+    selected_ott = filter_settings['ott']
 
-    if all_recommendations:
-        execute_query_and_display_results(random.choice(all_recommendations), "Random Recommendation")
+    if not search_query and not selected_categories_list:
+        result_text.config(state=tk.NORMAL)
+        result_text.delete("1.0", tk.END)
+        result_text.insert(tk.END, "Please select category first.")
+        result_text.config(state=tk.DISABLED)
+        return
+
+    sql_query = """
+        SELECT DISTINCT m.movie_id, m.title,
+                        GROUP_CONCAT(DISTINCT director.director_name SEPARATOR ', ') AS directors,
+                        GROUP_CONCAT(DISTINCT actor.actor_name SEPARATOR ', ') AS actors,
+                        GROUP_CONCAT(DISTINCT genre.genre_name SEPARATOR ', ') AS genres,
+                        m.release_year, m.rating, m.duration, ott_service.ott_service
+        FROM movies m
+        LEFT JOIN direct ON m.movie_id = direct.movie_id
+        LEFT JOIN director ON direct.director_id = director.director_id
+        LEFT JOIN cast ON m.movie_id = cast.movie_id
+        LEFT JOIN actor ON cast.actor_id = actor.actor_id
+        LEFT JOIN movies_genre ON m.movie_id = movies_genre.movie_id
+        LEFT JOIN genre ON movies_genre.genre_id = genre.genre_id
+        LEFT JOIN ott_service ON m.ott_id = ott_service.ott_id
+        WHERE 
+    """
+
+    conditions = []
+
+    if 'Movie' in selected_categories_list:
+        conditions.append(f"m.title LIKE '%{search_query}%'")
+
+    if 'Director' in selected_categories_list:
+        conditions.append(f"director.director_name LIKE '%{search_query}%'")
+
+    if 'Actor' in selected_categories_list:
+        conditions.append(f"actor.actor_name LIKE '%{search_query}%'")
+
+    if 'Genre' in selected_categories_list:
+        conditions.append(f"genre.genre_name LIKE '%{search_query}%'")
+
+    if selected_rating:
+        conditions.append(f"m.rating IN ({','.join(map(repr, selected_rating))})")
+
+    if selected_year:
+        year_ranges = {
+            '1900s': (1971, 1999),
+            '2000s': (2000, 2009),
+            '2010s': (2010, 2019),
+            '2020s': (2020, 2029),
+        }
+        year_conditions = []
+        for year_category in selected_year:
+            start_year, end_year = year_ranges.get(year_category, (0, 0))
+            year_conditions.append(f"m.release_year BETWEEN {start_year} AND {end_year}")
+        conditions.append("(" + " OR ".join(year_conditions) + ")")
+
+    if selected_ott:
+        conditions.append(f"ott_service.ott_service IN ({','.join(map(repr, selected_ott))})")
+
+    if not conditions:
+        generate_recommendations(limit=10)
+        return
+
+    sql_query += " AND ".join(conditions) + " GROUP BY m.movie_id LIMIT 10"
+
+    cursor.execute(sql_query)
+    result = cursor.fetchall()
+
+    result_text.config(state=tk.NORMAL)
+    result_text.delete("1.0", tk.END)
+
+    for row in result:
+        movie_id = row[0]
+        title = row[1]
+        directors = row[2]
+        actors = row[3]
+        genres = row[4]
+        release_year = row[5]
+        rating = row[6]
+        duration = row[7]
+        ott_service = row[8]
+
+        result_text.config(state=tk.NORMAL)
+
+        result_text.insert(tk.END, f"Title: {title}\n"
+                                   f"Directors: {directors}\n"
+                                   f"Actors: {actors}\n"
+                                   f"Genres: {genres}\n"
+                                   f"Release Year: {release_year}\n"
+                                   f"Rating: {rating}\n"
+                                   f"Duration: {duration} minutes\n"
+                                   f"OTT Service: {ott_service}\n")
+
+        detail_button = tk.Button(result_text, text="Detail", command=lambda mid=movie_id: open_detail_window(mid))
+        result_text.window_create(tk.END, window=detail_button)
+        result_text.insert(tk.END, "\n\n")
+
+    result_text.config(state=tk.DISABLED)
+
+def clear_search():
+    search_var.set("")
+    result_text.config(state=tk.NORMAL)
+    generate_recommendations()
+    result_text.config(state=tk.DISABLED)
+
+def open_detail_window(movie_id):
+    query = """
+        SELECT m.title, 
+               GROUP_CONCAT(DISTINCT director.director_name) AS directors,
+               GROUP_CONCAT(DISTINCT actor.actor_name SEPARATOR ', ') AS actors,
+               m.release_year, m.rating, m.duration, ott_service.ott_service,
+               GROUP_CONCAT(DISTINCT genre.genre_name SEPARATOR ', ') AS genres,
+               m.last_update, m.description
+        FROM movies m
+        LEFT JOIN direct ON m.movie_id = direct.movie_id
+        LEFT JOIN director ON direct.director_id = director.director_id
+        LEFT JOIN cast ON m.movie_id = cast.movie_id
+        LEFT JOIN actor ON cast.actor_id = actor.actor_id
+        LEFT JOIN ott_service ON m.ott_id = ott_service.ott_id
+        LEFT JOIN movies_genre ON m.movie_id = movies_genre.movie_id
+        LEFT JOIN genre ON movies_genre.genre_id = genre.genre_id
+        WHERE m.movie_id = %s
+        GROUP BY m.movie_id
+    """
+
+    cursor.execute(query, (movie_id,))
+    movie_details = cursor.fetchone()
+
+    detail_window = tk.Toplevel(root)
+    detail_window.title(f"Details for Movie ID: {movie_id}")
+    detail_window.configure(bg='white')
+
+    detail_text = tk.Text(detail_window, font=('Input Mono', 12, 'bold'), bg='white', fg='black')
+    detail_text.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
+
+    detail_text.insert(tk.END, f"Title: {movie_details[0]}\n"
+                               f"Directors: {movie_details[1]}\n"
+                               f"Actors: {movie_details[2]}\n"
+                               f"Release Year: {movie_details[3]}\n"
+                               f"Rating: {movie_details[4]}\n"
+                               f"Duration: {movie_details[5]} minutes\n"
+                               f"OTT: {movie_details[6]}\n"
+                               f"Genres: {movie_details[7]}\n"
+                               f"Last Update: {movie_details[8]}\n"
+                               f"Description: {movie_details[9]}\n")
+
+def open_category_window():
+    global filter_settings
+    category_window = tk.Toplevel(root)
+    category_window.title("Select Categories")
+    category_window.bind('<Control-BackSpace>', lambda event: category_window.destroy())
+
+    def toggle_category(category):
+        if category in filter_settings['categories']:
+            filter_settings['categories'].remove(category)
+            category_buttons[category].config(bg='white', fg='black')
+        else:
+            filter_settings['categories'].add(category)
+            category_buttons[category].config(bg='black', fg='white')
+
+    def reset_categories():
+        filter_settings['categories'] = set()
+        category_button.config(text='Category')
+
+    reset_categories()
+
+    category_button_names = ['Movie', 'Director', 'Actor', 'Genre']
+    category_buttons = {}
+
+    for category_name in category_button_names:
+        category_buttons[category_name] = tk.Button(
+            category_window, text=category_name,
+            command=lambda category=category_name: toggle_category(category),
+            width=15, height=2,
+            bg='white', fg='black', bd=3, relief=tk.RAISED,
+            font=('Input Mono', 10, 'bold')
+        )
+        category_buttons[category_name].pack(pady=5)
+
+    def select_categories():
+        if not filter_settings['categories']:
+            category_button.config(text='Category')
+        else:
+            category_button.config(text='\n'.join(filter_settings['categories']))
+        category_window.destroy()
+
+    select_button = tk.Button(
+        category_window, text="Select",
+        command=select_categories,
+        width=15, height=2,
+        bg='white', fg='black', bd=3, relief=tk.RAISED,
+        font=('Input Mono', 10, 'bold')
+    )
+    select_button.pack(side=tk.RIGHT, padx=10, pady=10)
 
 def open_title_window():
     title_window = tk.Toplevel(root)
     title_window.title("Details")
-    
+    title_window.bind('<Control-BackSpace>', lambda event: title_window.destroy())
+
     text_label = tk.Label(title_window, text="HAND-MOVIE\n\nMade by Group 2\nGaeun Seo, Imafuku Kokoro, Kyunam Park", font=('Input Mono', 12, 'bold'))
     text_label.pack(padx=20, pady=20)
 
-def open_rating_window(rating):
+def open_rating_window(rating=None):
     rating_window = tk.Toplevel(root)
     rating_window.title(f"About Ratings")
-    
+    rating_window.bind('<Control-BackSpace>', lambda event: rating_window.destroy())
+
     text_label = tk.Label(rating_window, font=('Input Mono', 12, 'bold'), text=f"G(General Audiences)\nAll ages admitted.\nNothing that would offend parents for viewing by children.\n\nPG(Parental Guidance Suggested)\nSome material may not be suitable for children.\nParents urged to give \'parental guidance\'.\nMay contain some material parents might not like for their young children.\n\nPG-13(Parental Strongly Cautioned)\nSome material may be inappropriate for children under 13.\nParents are urged to be cautious.\nSome material may be inappropriate for pre-teenagers.\n\nR(Restricted)\nUnder 17 requires accompanying parent or adult guardian.\nContains some adult material.\nParents are urged to learn more about the film before taking their young children with them.\n\nNC-17(Adults Only)\nNo one 17 and under admitted.\nClearly adult.\nChildren are not admitted.")
     text_label.pack(padx=20, pady=20)
 
@@ -131,56 +337,73 @@ root = tk.Tk()
 root.title("HAND-MOVIE")
 root.configure(bg='black')
 
-# Set the base size of the window
 root.geometry("850x650")
 
-# Title, Search Bar, and Search Button Frame
 title_frame = tk.Frame(root, bg='black')
 title_frame.pack(pady=10)
 
-# Title
 title_label = tk.Label(title_frame, text="HAND-MOVIE", font=('Input Mono', 22, 'bold'), bg='#F2DB83', fg='black')
 title_label.pack()
 title_label.bind('<Button-1>', lambda event: open_title_window())
+root.bind('<Control-e>', lambda event: open_title_window())
 
 ttk.Separator(title_frame, orient=tk.HORIZONTAL).pack(fill='x', pady=7)
 
-# Searching Bar
+category_button = tk.Button(
+    title_frame, text="Category", bg='#F2DB83', fg='black', bd=3, relief=tk.RAISED,
+    font=('Input Mono', 12, 'bold'), command=open_category_window
+)
+category_button.pack(side=tk.LEFT)
+root.bind('<Control-y>', lambda event: category_button.invoke())
+
 search_var = tk.StringVar()
 search_entry = tk.Entry(title_frame, textvariable=search_var, width=30, font=('Input Mono', 14, 'bold'))
-search_entry.pack(side=tk.LEFT)
-search_entry.bind('<KeyRelease>', search_autocomplete)
+search_entry.pack(side=tk.LEFT, padx=10)
+search_entry.focus_set()
+search_entry.bind('<Return>', lambda event=None: search_movies())
 
-# Search Button
-search_button = tk.Button(title_frame, text="Search", bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Input Mono', 12, 'bold'))
-search_button.pack(side=tk.LEFT, padx=(10, 0))
+search_button = tk.Button(
+    title_frame, text="Search", bg='white', fg='black', bd=3, relief=tk.RAISED,
+    font=('Input Mono', 12, 'bold'), command=search_movies
+)
+search_button.pack(side=tk.LEFT)
 
-# Left Side
+clear_button = tk.Button(
+    title_frame, text="Clear", bg='white', fg='black', bd=3, relief=tk.RAISED,
+    font=('Input Mono', 12, 'bold'), command=clear_search
+)
+clear_button.pack(side=tk.RIGHT, padx=10)
+root.bind('<Control-BackSpace>', lambda event: clear_button.invoke())
+
 left_frame = tk.Frame(root, bg='black', relief=tk.RAISED)
 left_frame.config(highlightbackground='white', highlightthickness=2)
 left_frame.pack(side=tk.LEFT, padx=20)
 
-# Rating Box
 rating_frame = tk.Frame(left_frame, bg='black', padx=15)
 rating_frame.pack()
 
 rating_label = tk.Label(rating_frame, text="Rating", font=('Input Mono', 12, 'bold'), bg='#F2DB83', fg='black')
 rating_label.pack(pady = 3)
 rating_label.bind('<Button-1>', open_rating_window)
+root.bind('<Control-g>', lambda event: open_rating_window())
 
-rating_names = ['G', 'PG', 'PG-13', 'NC-17']
+rating_names = ['G', 'PG', 'PG-13', 'R', 'NC-17']
 max_rating_width = 12
 
 rating_button = {}
 for rating in rating_names:
     rating_button[rating] = tk.Button(rating_frame, text=rating, width=max_rating_width, 
                                       command=lambda rating=rating: filter_by_rating(rating),
-                                      bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Input Mono', 10, 'bold'))  # Decrease the font size
+                                      bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Input Mono', 10, 'bold'))
     rating_button[rating].pack()
+root.bind('<Control-F1>', lambda event: toggle_button_color(rating_button['G']))
+root.bind('<Control-F2>', lambda event: toggle_button_color(rating_button['PG']))
+root.bind('<Control-F3>', lambda event: toggle_button_color(rating_button['PG-13']))
+root.bind('<Control-F4>', lambda event: toggle_button_color(rating_button['R']))
+root.bind('<Control-F5>', lambda event: toggle_button_color(rating_button['NC-17']))
 
 ttk.Separator(left_frame, orient=tk.HORIZONTAL).pack(fill='x', pady=5)
 
-# Release Year Box
 release_frame = tk.Frame(left_frame, bg='black', padx=15)
 release_frame.pack()
 release_label = tk.Label(release_frame, text="Release Year", font=('Input Mono', 12, 'bold'), bg='black', fg='white')
@@ -195,16 +418,19 @@ for year in year_buttons:
                                   command=lambda year=year: filter_by_year(year),
                                   bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Input Mono', 10, 'bold'))
     year_button[year].pack()
+root.bind('<Control-F6>', lambda event: toggle_button_color(year_button['1900s']))
+root.bind('<Control-F7>', lambda event: toggle_button_color(year_button['2000s']))
+root.bind('<Control-F8>', lambda event: toggle_button_color(year_button['2010s']))
+root.bind('<Control-F9>', lambda event: toggle_button_color(year_button['2020s']))
 
 ttk.Separator(left_frame, orient=tk.HORIZONTAL).pack(fill='x', pady=5)
 
-# OTT Box
 ott_frame = tk.Frame(left_frame, bg='black', padx=15)
 ott_frame.pack()
 ott_label = tk.Label(ott_frame, text="OTT", font=('Input Mono', 12, 'bold'), bg='black', fg='white')
 ott_label.pack()
 
-ott_list = ['Netflix', 'Amazon Prime', 'Hulu', 'Disney+']
+ott_list = ['netflix', 'amazon_prime', 'hulu', 'disney_plus']
 max_ott_width = 12
 
 ott_button = {}
@@ -213,19 +439,21 @@ for service in ott_list:
                                     command=lambda service=service: filter_by_ott(service),
                                     bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Input Mono', 10, 'bold'))
     ott_button[service].pack()
+root.bind('<Control-9>', lambda event: toggle_button_color(ott_button['Netflix']))
+root.bind('<Control-0>', lambda event: toggle_button_color(ott_button['Amazon Prime']))
+root.bind('<Control-minus>', lambda event: toggle_button_color(ott_button['Hulu']))
+root.bind('<Control-=>', lambda event: toggle_button_color(ott_button['Disney+']))
 
-# Right Side
 right_frame = tk.Frame(root, bg='black')
 right_frame.pack(side=tk.RIGHT, padx=10, expand=True, fill=tk.BOTH)
 
-# Result Box
-result_label = tk.Label(right_frame, text="Recommendation for You", font=('Input Mono', 14, 'bold'), bg='black', fg='white')
+result_label = tk.Label(right_frame, text="Search and Recommendation Results", font=('Input Mono', 14, 'bold'), bg='black', fg='white')
 result_label.pack(fill=tk.X)
 
-result_text = tk.Text(right_frame, font=('Input Mono', 14, 'bold'))
-result_text.pack(expand=True, fill=tk.BOTH, padx = 10, pady=30)
+result_text = tk.Text(right_frame, font=('Input Mono', 10, 'bold'))
+result_text.pack(expand=True, fill=tk.BOTH, padx=10, pady=30)
 result_text.config(state=tk.DISABLED)
 
-fetch_recommendations()
+generate_recommendations()
 
 root.mainloop()
