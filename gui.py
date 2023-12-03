@@ -2,7 +2,6 @@ import tkinter as tk
 from tkinter import ttk
 import mysql.connector
 import tkinter.messagebox as messagebox
-import random
 
 conn = mysql.connector.connect(
     host="localhost",
@@ -18,6 +17,8 @@ filter_settings = {
     'year': [],
     'ott': []
 }
+
+max_row = 10
 
 def filter_by_rating(rating):
     toggle_button_color(rating_button[rating])
@@ -35,7 +36,7 @@ def toggle_button_color(button):
     current_bg = button.cget('bg')
     button.config(bg=button.cget('fg'), fg=current_bg)
 
-def generate_recommendations(limit=10):
+def generate_recommendations(limit=max_row):
     global filter_settings
 
     where_conditions = []
@@ -66,8 +67,9 @@ def generate_recommendations(limit=10):
         SELECT DISTINCT m.movie_id, m.title,
                         GROUP_CONCAT(DISTINCT director.director_name SEPARATOR ', ') AS directors,
                         GROUP_CONCAT(DISTINCT actor.actor_name SEPARATOR ', ') AS actors,
-                        m.release_year, m.rating, m.duration, ott_service.ott_service,
-                        GROUP_CONCAT(DISTINCT genre.genre_name SEPARATOR ', ') AS genres
+                        GROUP_CONCAT(DISTINCT genre.genre_name SEPARATOR ', ') AS genres,
+                        m.release_year, m.rating, m.duration, ott_service.ott_service
+                        
         FROM movies m
         LEFT JOIN direct ON m.movie_id = direct.movie_id
         LEFT JOIN director ON direct.director_id = director.director_id
@@ -89,34 +91,24 @@ def generate_recommendations(limit=10):
     result_text.delete("1.0", tk.END)
 
     for row in result:
-        movie_id = row[0]
-        title = row[1]
-        directors = row[2]
-        actors = row[3]
-        genres = row[8]
-        release_year = row[4]
-        rating = row[5]
-        duration = row[6]
-        ott_service = row[7]
-
         result_text.config(state=tk.NORMAL)
 
-        result_text.insert(tk.END, f"Title: {title}\n"
-                                f"Directors: {directors}\n"
-                                f"Actors: {actors}\n"
-                                f"Genres: {genres}\n"
-                                f"Release Year: {release_year}\n"
-                                f"Rating: {rating}\n"
-                                f"Duration: {duration} minutes\n"
-                                f"OTT Service: {ott_service}\n")
+        result_text.insert(tk.END, f"Title: {row[1]}\n"
+                                f"Directors: {row[2]}\n"
+                                f"Actors: {row[3]}\n"
+                                f"Genres: {row[4]}\n"
+                                f"Release Year: {row[5]}\n"
+                                f"Rating: {row[6]}\n"
+                                f"Duration: {row[7]} minutes\n"
+                                f"OTT Service: {row[8]}\n")
 
-        detail_button = tk.Button(result_text, text="Detail", command=lambda mid=movie_id: open_detail_window(mid))
+        detail_button = tk.Button(result_text, text="Detail", command=lambda mid=row[0]: open_detail_window(mid))
         result_text.window_create(tk.END, window=detail_button)
         result_text.insert(tk.END, "\n\n")
 
     result_text.config(state=tk.DISABLED)
 
-def search_movies():
+def search_movies(limit=max_row):
     global filter_settings
     search_query = search_var.get().strip()
     selected_categories_list = list(filter_settings['categories'])
@@ -124,7 +116,7 @@ def search_movies():
     selected_year = filter_settings['year']
     selected_ott = filter_settings['ott']
 
-    if not search_query and not selected_categories_list:
+    if not selected_categories_list:
         result_text.config(state=tk.NORMAL)
         result_text.delete("1.0", tk.END)
         result_text.insert(tk.END, "Please select category first.")
@@ -181,11 +173,7 @@ def search_movies():
     if selected_ott:
         conditions.append(f"ott_service.ott_service IN ({','.join(map(repr, selected_ott))})")
 
-    if not conditions:
-        generate_recommendations(limit=10)
-        return
-
-    sql_query += " AND ".join(conditions) + " GROUP BY m.movie_id LIMIT 10"
+    sql_query += " AND ".join(conditions) + f" GROUP BY m.movie_id LIMIT {limit}"
 
     cursor.execute(sql_query)
     result = cursor.fetchall()
@@ -194,28 +182,18 @@ def search_movies():
     result_text.delete("1.0", tk.END)
 
     for row in result:
-        movie_id = row[0]
-        title = row[1]
-        directors = row[2]
-        actors = row[3]
-        genres = row[4]
-        release_year = row[5]
-        rating = row[6]
-        duration = row[7]
-        ott_service = row[8]
-
         result_text.config(state=tk.NORMAL)
 
-        result_text.insert(tk.END, f"Title: {title}\n"
-                                   f"Directors: {directors}\n"
-                                   f"Actors: {actors}\n"
-                                   f"Genres: {genres}\n"
-                                   f"Release Year: {release_year}\n"
-                                   f"Rating: {rating}\n"
-                                   f"Duration: {duration} minutes\n"
-                                   f"OTT Service: {ott_service}\n")
+        result_text.insert(tk.END, f"Title: {row[1]}\n"
+                                   f"Directors: {row[2]}\n"
+                                   f"Actors: {row[3]}\n"
+                                   f"Genres: {row[4]}\n"
+                                   f"Release Year: {row[5]}\n"
+                                   f"Rating: {row[6]}\n"
+                                   f"Duration: {row[7]} minutes\n"
+                                   f"OTT Service: {row[8]}\n")
 
-        detail_button = tk.Button(result_text, text="Detail", command=lambda mid=movie_id: open_detail_window(mid))
+        detail_button = tk.Button(result_text, text="Detail", command=lambda mid=row[0]: open_detail_window(mid))
         result_text.window_create(tk.END, window=detail_button)
         result_text.insert(tk.END, "\n\n")
 
@@ -229,20 +207,20 @@ def clear_search():
 
 def open_detail_window(movie_id):
     query = """
-        SELECT m.title, 
-               GROUP_CONCAT(DISTINCT director.director_name) AS directors,
-               GROUP_CONCAT(DISTINCT actor.actor_name SEPARATOR ', ') AS actors,
-               m.release_year, m.rating, m.duration, ott_service.ott_service,
-               GROUP_CONCAT(DISTINCT genre.genre_name SEPARATOR ', ') AS genres,
-               m.last_update, m.description
+        SELECT m.title,
+                GROUP_CONCAT(DISTINCT director.director_name) AS directors,
+                GROUP_CONCAT(DISTINCT actor.actor_name SEPARATOR ', ') AS actors,
+                GROUP_CONCAT(DISTINCT genre.genre_name SEPARATOR ', ') AS genres,
+                m.release_year, m.rating, m.duration, ott_service.ott_service,
+                m.last_update, m.description
         FROM movies m
         LEFT JOIN direct ON m.movie_id = direct.movie_id
         LEFT JOIN director ON direct.director_id = director.director_id
         LEFT JOIN cast ON m.movie_id = cast.movie_id
         LEFT JOIN actor ON cast.actor_id = actor.actor_id
-        LEFT JOIN ott_service ON m.ott_id = ott_service.ott_id
         LEFT JOIN movies_genre ON m.movie_id = movies_genre.movie_id
         LEFT JOIN genre ON movies_genre.genre_id = genre.genre_id
+        LEFT JOIN ott_service ON m.ott_id = ott_service.ott_id
         WHERE m.movie_id = %s
         GROUP BY m.movie_id
     """
@@ -256,17 +234,17 @@ def open_detail_window(movie_id):
 
     detail_text = tk.Text(detail_window, font=('Input Mono', 12, 'bold'), bg='white', fg='black')
     detail_text.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
-
-    detail_text.insert(tk.END, f"Title: {movie_details[0]}\n"
-                               f"Directors: {movie_details[1]}\n"
-                               f"Actors: {movie_details[2]}\n"
-                               f"Release Year: {movie_details[3]}\n"
-                               f"Rating: {movie_details[4]}\n"
-                               f"Duration: {movie_details[5]} minutes\n"
-                               f"OTT: {movie_details[6]}\n"
-                               f"Genres: {movie_details[7]}\n"
-                               f"Last Update: {movie_details[8]}\n"
-                               f"Description: {movie_details[9]}\n")
+    detail_text.insert(tk.END, f"Title: {movie_details[0]}\n\n"
+                               f"Directors: {movie_details[1]}\n\n"
+                               f"Actors: {movie_details[2]}\n\n"
+                               f"Genres: {movie_details[3]}\n\n"
+                               f"Release Year: {movie_details[4]}\n\n"
+                               f"Rating: {movie_details[5]}\n\n"
+                               f"Duration: {movie_details[6]} minutes\n\n"
+                               f"OTT: {movie_details[7]}\n\n"
+                               f"Last Update: {'no info' if str(movie_details[8]) == '1970-01-01' else movie_details[8]}\n\n"
+                               f"Description: {movie_details[9]}")
+    detail_text.config(state=tk.DISABLED)
 
 def open_category_window():
     global filter_settings
@@ -336,7 +314,6 @@ def open_rating_window(rating=None):
 root = tk.Tk()
 root.title("HAND-MOVIE")
 root.configure(bg='black')
-
 root.geometry("850x650")
 
 title_frame = tk.Frame(root, bg='black')
