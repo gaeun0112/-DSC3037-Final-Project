@@ -124,7 +124,7 @@ movies_country = movies_country[['movie_id','country_id','last_update']]
 
 # drop unusing columns
 processed_movies = movies.drop(columns=['type','director','cast','country','listed_in'])
-processed_movies = [['movie_id','title','last_update','release_year','rating','duration','ott_id','description']]
+processed_movies = processed_movies[['movie_id','title','last_update','release_year','rating','duration','ott_id','description']]
 
 # save dataframes to csv file
 processed_movies.to_csv('./DSC3037_23_2_RDBMS/for_use/movies.csv')
