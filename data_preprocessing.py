@@ -42,7 +42,7 @@ movies.rating = movies.rating.apply(lambda x: 'no info' if x not in ['R', 'PG-13
 # for ott table
 ott_service = pd.DataFrame({
     'ott_id': [1, 2, 3, 4],
-    'ott_service': ['amazon_prime','netflix','hulu','disney_plus'],
+    'ott_service': ['Amazon Prime','Neflix','Hulu','Disney+'],
     'last_update':[movies['last_update'].max()]*4                      
     })
 
@@ -92,7 +92,7 @@ cast = cast[['movie_id','actor_id','last_update']]
 # for genre table
 tmp = pd.melt(movies.listed_in.str.split(', ', expand=True).reset_index(), id_vars='index', var_name='tmp', value_name='genre_name')
 tmp = tmp.drop(columns=['tmp']).rename(columns={'index':'movie_id'}).dropna()
-tmp.genre_name = tmp.genre_name.apply(lambda x: x.lower().lstrip().replace(' features','').replace(' film','').replace(' movies','').replace('anime','animation').replace('/',' and ').replace('-',' and ').replace('and','&').replace('classics','classic').replace('comedies','comedy').replace('dramas','drama').replace('documentaries','documentary').replace('romantic','romance').replace('and culture','culture'))
+tmp.genre_name = tmp.genre_name.apply(lambda x: x.lower().lstrip().replace('/',' & ').replace('-',' & ').replace('+','').replace(' and ',' & ').replace('arthouse','art').replace('arts','art').replace(' features','').replace(' movies','').replace('movies','no info').replace(' audience','').replace('anime','animation').replace('classics','classic').replace('comedies','comedy').replace('dramas','drama').replace('documentaries','documentary').replace('romantic','romance').replace('and culture','culture').replace('thrillers','thriller'))
 tmp = tmp.drop_duplicates(subset=['movie_id', 'genre_name'], keep='first')
 tmp.movie_id+=1
 tmp = pd.merge(tmp, movies[['movie_id','last_update']], on='movie_id', how='left')

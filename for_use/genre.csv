@@ -1,77 +1,74 @@
 ,genre_id,genre_name,last_update
-0,1,& culture,20211126
-1,2,action,20211126
-2,3,action & adventure,20211126
-3,4,adult animation,20211126
-4,5,adventure,20211126
-5,6,animals & nature,20211126
-6,7,animation,20211126
-7,8,anthology,20211126
-8,9,arthouse,20211126
-9,10,arts,20211126
-10,11,biographical,20211126
-11,12,black stories,20211126
-12,13,buddy,20211126
-13,14,cartoons,20211126
-14,15,children & family,20211126
-15,16,classic,20211126
-16,17,comedy,20211126
-17,18,coming of age,20211126
-18,19,concert,20211126
-19,20,cooking & food,20211126
-20,21,crime,20211126
-21,22,cult,20211126
-22,23,dance,20211126
-23,24,disaster,20211126
-24,25,documentary,20211126
-25,26,drama,20211126
-26,27,entertainment,20211126
-27,28,faith & spirituality,20211126
-28,29,family,20211126
-29,30,fantasy,20211126
-30,31,fitness,20211126
-31,32,health & wellness,20211126
-32,33,historical,20211126
-33,34,history,20211126
-34,35,horror,20211126
-35,36,independent,20211126
-36,37,international,20211126
-37,38,kids,20211126
-38,39,latino,20211126
-39,40,lgbtq,20211126
-40,41,lgbtq+,20211126
-41,42,lifestyle,20211126
-42,43,lifestyle & culture,20211126
-43,44,medical,20211126
-44,45,military & war,20211126
-45,46,movies,20211126
-46,47,music,20211126
-47,48,music & musicals,20211126
-48,49,music videos & concerts,20211126
-49,50,musical,20211126
-50,51,mystery,20211126
-51,52,news,20211126
-52,53,parody,20211126
-53,54,reality,20211126
-54,55,romance,20211126
-55,56,romance comedy,20211126
-56,57,sci & fi & fantasy,20211126
-57,58,science & technology,20211126
-58,59,science fiction,20211126
-59,60,sitcom,20211126
-60,61,special interest,20211126
-61,62,sports,20211126
-62,63,spy & espionage,20211126
-63,64,st& & up comedy,20211126
-64,65,st& up,20211126
-65,66,superhero,20211126
-66,67,survival,20211126
-67,68,suspense,20211126
-68,69,talk show & variety,20211126
-69,70,teen,20211126
-70,71,thriller,20211126
-71,72,thrillers,20211126
-72,73,unscripted,20211126
-73,74,variety,20211126
-74,75,western,20211126
-75,76,young adult audience,20211126
+0,1,action,20211126
+1,2,action & adventure,20211126
+2,3,adult animation,20211126
+3,4,adventure,20211126
+4,5,animals & nature,20211126
+5,6,animation,20211126
+6,7,anthology,20211126
+7,8,art,20211126
+8,9,biographical,20211126
+9,10,black stories,20211126
+10,11,buddy,20211126
+11,12,cartoons,20211126
+12,13,children & family,20211126
+13,14,classic,20211126
+14,15,comedy,20211126
+15,16,coming of age,20211126
+16,17,concert film,20211126
+17,18,cooking & food,20211126
+18,19,crime,20211126
+19,20,cult,20211126
+20,21,culture,20211126
+21,22,dance,20211126
+22,23,disaster,20211126
+23,24,documentary,20211126
+24,25,drama,20211126
+25,26,entertainment,20211126
+26,27,faith & spirituality,20211126
+27,28,family,20211126
+28,29,fantasy,20211126
+29,30,fitness,20211126
+30,31,health & wellness,20211126
+31,32,historical,20211126
+32,33,history,20211126
+33,34,horror,20211126
+34,35,independent,20211126
+35,36,international,20211126
+36,37,kids,20211126
+37,38,latino,20211126
+38,39,lgbtq,20211126
+39,40,lifestyle,20211126
+40,41,lifestyle & culture,20211126
+41,42,medical,20211126
+42,43,military & war,20211126
+43,44,music,20211126
+44,45,music & musicals,20211126
+45,46,music videos & concerts,20211126
+46,47,musical,20211126
+47,48,mystery,20211126
+48,49,news,20211126
+49,50,no info,20211126
+50,51,parody,20211126
+51,52,reality,20211126
+52,53,romance,20211126
+53,54,romance comedy,20211126
+54,55,sci & fi & fantasy,20211126
+55,56,science & technology,20211126
+56,57,science fiction,20211126
+57,58,sitcom,20211126
+58,59,special interest,20211126
+59,60,sports,20211126
+60,61,spy & espionage,20211126
+61,62,stand & up comedy,20211126
+62,63,stand up,20211126
+63,64,superhero,20211126
+64,65,survival,20211126
+65,66,suspense,20211126
+66,67,talk show & variety,20211126
+67,68,teen,20211126
+68,69,thriller,20211126
+69,70,unscripted,20211126
+70,71,variety,20211126
+71,72,western,20211126
+72,73,young adult,20211126

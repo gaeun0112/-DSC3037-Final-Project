@@ -10,6 +10,7 @@ mydb = mysql.connector.connect(
     passwd = "5789"  
 )
 mycursor = mydb.cursor()
+mycursor.execute("DROP DATABASE IF EXISTS db_project")
 mycursor.execute("CREATE DATABASE IF NOT EXISTS db_project")
 
 def connectDB(db_use):
