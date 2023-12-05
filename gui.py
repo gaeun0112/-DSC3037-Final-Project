@@ -36,7 +36,7 @@ LEFT JOIN actor ON cast.actor_id = actor.actor_id
 LEFT JOIN movies_genre ON m.movie_id = movies_genre.movie_id
 LEFT JOIN genre ON movies_genre.genre_id = genre.genre_id
 LEFT JOIN ott_service ON m.ott_id = ott_service.ott_id'''
-max_row = 10
+max_row = 30
 button_width = 12
 
 def basic_font(size):
@@ -170,7 +170,7 @@ def open_detail_window(movie_id):
     cursor.execute(query, (movie_id,))
     movie_details = cursor.fetchone()
 
-    global detail_window  # Declare detail_window as a global variable
+    global detail_window
     detail_window = tk.Toplevel(root)
     detail_window.title(f"Details for Movie ID: {movie_id}")
     detail_window.configure(bg='white')
@@ -390,6 +390,12 @@ result_label.pack(fill=tk.X)
 result_text = tk.Text(right_frame, font=basic_font(10))
 result_text.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
 result_text.config(state=tk.DISABLED)
+
+vertical_scrollbar = tk.Scrollbar(right_frame, command=result_text.yview)
+vertical_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+# Attach the scrollbar to the result_text widget
+result_text.config(yscrollcommand=vertical_scrollbar.set)
 
 generate_recommendations()
 
