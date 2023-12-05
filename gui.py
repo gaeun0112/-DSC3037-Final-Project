@@ -108,7 +108,15 @@ def search_movies(limit=max_row):
     if not list(filter_settings['categories']):
         result_text.config(state=tk.NORMAL)
         result_text.delete("1.0", tk.END)
-        result_text.insert(tk.END, "Please select category first.")
+        result_text.insert(tk.END, "No category is selected.\n\nPlease select category first.")
+        result_text.config(state=tk.DISABLED)
+        return
+
+    if not search_query:
+        result_text.config(state=tk.NORMAL)
+        result_text.delete("1.0", tk.END)
+        result_text.insert(tk.END, "The search bar is empty.\n\nPlease enter something to search.")
+
         result_text.config(state=tk.DISABLED)
         return
 
@@ -380,22 +388,23 @@ root.bind('<Control-=>', lambda event: toggle_button_color(ott_button['Disney+']
 
 # right frame
 right_frame = tk.Frame(root, bg='black')
-right_frame.pack(side=tk.RIGHT, padx=10, expand=True, fill=tk.BOTH)
+right_frame.pack(side=tk.RIGHT, expand=True, fill=tk.BOTH)
 
 # result_label
 result_label = tk.Label(right_frame, text="", font=basic_font(14), bg='black', fg='white')
 result_label.pack(fill=tk.X)
 
+# vertical_scrollbar
+vertical_scrollbar = tk.Scrollbar(right_frame)
+vertical_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady = 10)
+
 # result_text
 result_text = tk.Text(right_frame, font=basic_font(10))
 result_text.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
 result_text.config(state=tk.DISABLED)
-
-vertical_scrollbar = tk.Scrollbar(right_frame, command=result_text.yview)
-vertical_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-
-# Attach the scrollbar to the result_text widget
 result_text.config(yscrollcommand=vertical_scrollbar.set)
+
+vertical_scrollbar.config(command=result_text.yview)
 
 generate_recommendations()
 
