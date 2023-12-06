@@ -7,22 +7,18 @@ conn = mysql.connector.connect(
     host="localhost",
     user="root",
     password="5789",
-    database="db_project"
-)
+    database="db_project")
 cursor = conn.cursor()
-
 filter_settings = {
     'categories': set(),
     'rating': [],
     'year': [],
-    'ott': []
-}
+    'ott': []}
 year_ranges = {
     '1900s': (1971, 1999),
     '2000s': (2000, 2009),
     '2010s': (2010, 2019),
-    '2020s': (2020, 2029),
-}
+    '2020s': (2020, 2029),}
 basic_select = f'''SELECT DISTINCT m.movie_id, m.title,
 GROUP_CONCAT(DISTINCT director.director_name SEPARATOR ', ') AS directors,
 GROUP_CONCAT(DISTINCT actor.actor_name SEPARATOR ', ') AS actors,
@@ -38,9 +34,6 @@ LEFT JOIN genre ON movies_genre.genre_id = genre.genre_id
 LEFT JOIN ott_service ON m.ott_id = ott_service.ott_id'''
 max_row = 30
 button_width = 12
-
-def basic_font(size):
-    return ('Input Mono', size, 'bold')
 
 def print_format(row, num):
     query = f"Title: {row[1]}\nDirectors: {row[2]}\nActors: {row[3]}\nGenres: {row[4]}\nRelease Year: {row[5]}\nRating: {row[6]}\nDuration: {row[7]} min\nOTT Service: {row[8]}\n"
@@ -102,7 +95,7 @@ def generate_recommendations(limit=max_row):
 
 def search_movies(limit=max_row):
     result_label.config(text="Search Results", fg='white')
-    
+
     search_query = search_var.get().strip()
 
     if not list(filter_settings['categories']):
@@ -116,25 +109,26 @@ def search_movies(limit=max_row):
         result_text.config(state=tk.NORMAL)
         result_text.delete("1.0", tk.END)
         result_text.insert(tk.END, "The search bar is empty.\n\nPlease enter something to search.")
-
         result_text.config(state=tk.DISABLED)
         return
+
+    # Split the search query into words
+    search_words = search_query.split()
 
     sql_query = f'{basic_select}\n{basic_from}\nWHERE '
 
     conditions = []
 
-    if 'Movie' in list(filter_settings['categories']):
-        conditions.append(f"m.title LIKE '%{search_query}%'")
-
-    if 'Director' in list(filter_settings['categories']):
-        conditions.append(f"director.director_name LIKE '%{search_query}%'")
-
-    if 'Actor' in list(filter_settings['categories']):
-        conditions.append(f"actor.actor_name LIKE '%{search_query}%'")
-
-    if 'Genre' in list(filter_settings['categories']):
-        conditions.append(f"genre.genre_name LIKE '%{search_query}%'")
+    for category in filter_settings['categories']:
+        for word in search_words:
+            if category == 'Movie':
+                conditions.append(f"m.title LIKE '%{word}%'")
+            elif category == 'Director':
+                conditions.append(f"director.director_name LIKE '%{word}%'")
+            elif category == 'Actor':
+                conditions.append(f"actor.actor_name LIKE '%{word}%'")
+            elif category == 'Genre':
+                conditions.append(f"genre.genre_name LIKE '%{word}%'")
 
     if filter_settings['rating']:
         conditions.append(f"m.rating IN ({','.join(map(repr, filter_settings['rating']))})")
@@ -149,7 +143,7 @@ def search_movies(limit=max_row):
     if filter_settings['ott']:
         conditions.append(f"ott_service.ott_service IN ({','.join(map(repr, filter_settings['ott']))})")
 
-    sql_query += " OR ".join(conditions) + f" GROUP BY m.movie_id LIMIT {limit}"
+    sql_query += " AND ".join(conditions) + f" GROUP BY m.movie_id LIMIT {limit}"
 
     cursor.execute(sql_query)
     result = cursor.fetchall()
@@ -205,7 +199,6 @@ def delete_movie(movie_id):
     detail_window.destroy()
 
 def open_category_window():
-    global filter_settings
     category_window = tk.Toplevel(root)
     category_window.title("Select Categories")
     category_window.bind('<Control-BackSpace>', lambda event: category_window.destroy())
@@ -213,16 +206,21 @@ def open_category_window():
     def toggle_category(category):
         if category in filter_settings['categories']:
             filter_settings['categories'].remove(category)
-            category_buttons[category].config(bg='white', fg='black')
         else:
-            filter_settings['categories'].add(category)
-            category_buttons[category].config(bg='black', fg='white')
+            filter_settings['categories'] = {category}
 
-    def reset_categories():
-        filter_settings['categories'] = set()
-        category_button.config(text='Category')
+        update_category_buttons()
 
-    reset_categories()
+    def update_category_buttons():
+        for category_name in category_buttons:
+            category_buttons[category_name].config(
+                bg='black' if category_name in filter_settings['categories'] else 'white',
+                fg='white' if category_name in filter_settings['categories'] else 'black'
+            )
+
+    def select_categories():
+        category_button.config(text='\n'.join(filter_settings['categories'])) if filter_settings['categories'] else category_button.config(text='Category')
+        category_window.destroy()
 
     category_button_names = ['Movie', 'Director', 'Actor', 'Genre']
     category_buttons = {}
@@ -233,13 +231,6 @@ def open_category_window():
             width=15, height=2, bg='white', fg='black', bd=3, relief=tk.RAISED, font=basic_font(10)
         )
         category_buttons[category_name].pack(pady=5)
-
-    def select_categories():
-        if not filter_settings['categories']:
-            category_button.config(text='Category')
-        else:
-            category_button.config(text='\n'.join(filter_settings['categories']))
-        category_window.destroy()
 
     select_button = tk.Button(
         category_window, text="Select", command=select_categories,
@@ -279,7 +270,7 @@ title_frame = tk.Frame(root, bg='black')
 title_frame.pack(pady=10)
 
 # title label
-title_label = tk.Label(title_frame, text="HAND-MOVIE", font=basic_font(22), bg='#F2DB83', fg='black')
+title_label = tk.Label(title_frame, text="HAND-MOVIE", font=('Input Mono',22,'bold'), bg='#F2DB83', fg='black')
 title_label.pack()
 title_label.bind('<Button-1>', lambda event: open_title_window())
 root.bind('<Control-e>', lambda event: open_title_window())
@@ -289,26 +280,26 @@ ttk.Separator(title_frame, orient=tk.HORIZONTAL).pack(fill='x', pady=7)
 # category button
 category_button = tk.Button(
     title_frame, text="Category", bg='#F2DB83', fg='black', bd=3, relief=tk.RAISED,
-    font=basic_font(12), command=open_category_window
+    font=('Input Mono',12,'bold'), command=open_category_window
 )
 category_button.pack(side=tk.LEFT)
 root.bind('<Control-y>', lambda event: category_button.invoke())
 
 # search entry
 search_var = tk.StringVar()
-search_entry = tk.Entry(title_frame, textvariable=search_var, width=30, font=basic_font(14))
+search_entry = tk.Entry(title_frame, textvariable=search_var, width=30, font=('Input Mono',14,'bold'))
 search_entry.pack(side=tk.LEFT, padx=10)
 search_entry.focus_set()
 search_entry.bind('<Return>', lambda event=None: search_movies())
 
 # search button
 search_button = tk.Button(title_frame, command=search_movies, text="Search", bg='white', fg='black', bd=3,
-                          relief=tk.RAISED, font=basic_font(12))
+                          relief=tk.RAISED, font=('Input Mono',12,'bold'))
 search_button.pack(side=tk.LEFT)
 
 # clear button
 clear_button = tk.Button(title_frame, command=clear_search, text="Clear", bg='white', fg='black', bd=3,
-                         relief=tk.RAISED, font=basic_font(12))
+                         relief=tk.RAISED, font=('Input Mono',12,'bold'))
 clear_button.pack(side=tk.RIGHT, padx=10)
 root.bind('<Control-BackSpace>', lambda event: clear_button.invoke())
 
@@ -322,7 +313,7 @@ rating_frame = tk.Frame(left_frame, bg='black', padx=15)
 rating_frame.pack()
 
 # rating label
-rating_label = tk.Label(rating_frame, text="Rating", font=basic_font(12), bg='#F2DB83', fg='black')
+rating_label = tk.Label(rating_frame, text="Rating", font=('Input Mono',12,'bold'), bg='#F2DB83', fg='black')
 rating_label.pack(pady = 3)
 rating_label.bind('<Button-1>', open_rating_window)
 root.bind('<Control-g>', lambda event: open_rating_window())
@@ -334,35 +325,41 @@ rating_button = {}
 for rating in rating_names:
     rating_button[rating] = tk.Button(rating_frame, text=rating, width=button_width, bg='white', fg='black', bd=3,
                                       command=lambda rating=rating: filter_by_rating(rating), relief=tk.RAISED,
-                                      font=basic_font(10))
+                                      font=('Input Mono',10,'bold'))
     rating_button[rating].pack()
-root.bind('<Control-F1>', lambda event: toggle_button_color(rating_button['G']))
-root.bind('<Control-F2>', lambda event: toggle_button_color(rating_button['PG']))
-root.bind('<Control-F3>', lambda event: toggle_button_color(rating_button['PG-13']))
-root.bind('<Control-F4>', lambda event: toggle_button_color(rating_button['R']))
-root.bind('<Control-F5>', lambda event: toggle_button_color(rating_button['NC-17']))
+# shortcut for rating buttons
+root.bind('<Control-q>', lambda event: toggle_button_color(rating_button['G']))
+root.bind('<Control-w>', lambda event: toggle_button_color(rating_button['PG']))
+root.bind('<Control-e>', lambda event: toggle_button_color(rating_button['PG-13']))
+root.bind('<Control-r>', lambda event: toggle_button_color(rating_button['R']))
+root.bind('<Control-t>', lambda event: toggle_button_color(rating_button['NC-17']))
 
+# seperating rating and release year buttons
 ttk.Separator(left_frame, orient=tk.HORIZONTAL).pack(fill='x', pady=5)
 
 # release year frame
 release_frame = tk.Frame(left_frame, bg='black', padx=15)
 release_frame.pack()
-release_label = tk.Label(release_frame, text="Release Year", font=basic_font(12), bg='black', fg='white')
+release_label = tk.Label(release_frame, text="Release Year", font=('Input Mono',12,'bold'), bg='black', fg='white')
 release_label.pack()
 
 # release year buttons
+# 1900s = 1971 ~ 1999, 2000s = 2000 ~ 2009, 2010s = 2010 ~ 2019, 2020s = 2020 ~ 2029
 year_buttons = ['1900s', '2000s', '2010s', '2020s']
 year_button = {}
 for year in year_buttons:
     year_button[year] = tk.Button(release_frame, text=year, width=button_width, 
                                   command=lambda year=year: filter_by_year(year),
-                                  bg='white', fg='black', bd=3, relief=tk.RAISED, font=basic_font(10))
+                                  bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Input Mono',10,'bold'))
     year_button[year].pack()
-root.bind('<Control-F6>', lambda event: toggle_button_color(year_button['1900s']))
-root.bind('<Control-F7>', lambda event: toggle_button_color(year_button['2000s']))
-root.bind('<Control-F8>', lambda event: toggle_button_color(year_button['2010s']))
-root.bind('<Control-F9>', lambda event: toggle_button_color(year_button['2020s']))
 
+# shortcut for release year buttons
+root.bind('<Control-y>', lambda event: toggle_button_color(year_button['1900s']))
+root.bind('<Control-u>', lambda event: toggle_button_color(year_button['2000s']))
+root.bind('<Control-i>', lambda event: toggle_button_color(year_button['2010s']))
+root.bind('<Control-o>', lambda event: toggle_button_color(year_button['2020s']))
+
+# seperating release year and ott buttons
 ttk.Separator(left_frame, orient=tk.HORIZONTAL).pack(fill='x', pady=5)
 
 # ott frame
@@ -370,7 +367,7 @@ ott_frame = tk.Frame(left_frame, bg='black', padx=15)
 ott_frame.pack()
 
 # ott label
-ott_label = tk.Label(ott_frame, text="OTT", font=basic_font(12), bg='black', fg='white')
+ott_label = tk.Label(ott_frame, text="OTT", font=('Input Mono',12,'bold'), bg='black', fg='white')
 ott_label.pack()
 
 # ott buttons
@@ -379,28 +376,30 @@ ott_button = {}
 for service in ott_list:
     ott_button[service] = tk.Button(ott_frame, text=service, width=button_width, bg='white', fg='black',
                                     command=lambda service=service: filter_by_ott(service),
-                                    bd=3, relief=tk.RAISED, font=basic_font(10))
+                                    bd=3, relief=tk.RAISED, font=('Input Mono',10,'bold'))
     ott_button[service].pack()
-root.bind('<Control-9>', lambda event: toggle_button_color(ott_button['Netflix']))
-root.bind('<Control-0>', lambda event: toggle_button_color(ott_button['Amazon Prime']))
-root.bind('<Control-minus>', lambda event: toggle_button_color(ott_button['Hulu']))
-root.bind('<Control-=>', lambda event: toggle_button_color(ott_button['Disney+']))
+    
+# shortcut for ott buttons
+root.bind('<Control-p>', lambda event: toggle_button_color(ott_button['Amazon Prime']))
+root.bind('<Control-[>', lambda event: toggle_button_color(ott_button['Disney+']))
+root.bind('<Control-]>', lambda event: toggle_button_color(ott_button['Hulu']))
+root.bind('<Control-\>', lambda event: toggle_button_color(ott_button['Netflix']))
 
 # right frame
 right_frame = tk.Frame(root, bg='black')
 right_frame.pack(side=tk.RIGHT, expand=True, fill=tk.BOTH)
 
 # result_label
-result_label = tk.Label(right_frame, text="", font=basic_font(14), bg='black', fg='white')
+result_label = tk.Label(right_frame, text="", font=('Input Mono',14,'bold'), bg='black', fg='white')
 result_label.pack(fill=tk.X)
 
-# vertical_scrollbar
+# vertical_scrollbar for result_text
 vertical_scrollbar = tk.Scrollbar(right_frame)
-vertical_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, pady = 10)
+vertical_scrollbar.pack(side=tk.RIGHT, fill=tk.Y, padx=3, pady=10)
 
 # result_text
-result_text = tk.Text(right_frame, font=basic_font(10))
-result_text.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
+result_text = tk.Text(right_frame, font=('Input Mono',10,'bold'))
+result_text.pack(expand=True, fill=tk.BOTH, pady=10)
 result_text.config(state=tk.DISABLED)
 result_text.config(yscrollcommand=vertical_scrollbar.set)
 
