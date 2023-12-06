@@ -36,25 +36,21 @@ max_row = 30
 button_width = 12
 
 def print_format(row, num):
+    # printing format of recommendation and search results
     query = f"Title: {row[1]}\nDirectors: {row[2]}\nActors: {row[3]}\nGenres: {row[4]}\nRelease Year: {row[5]}\nRating: {row[6]}\nDuration: {row[7]} min\nOTT Service: {row[8]}\n"
     return query.replace('\n', '\n\n') if num == 10 else query
-
 def filter_by_rating(rating):
     toggle_button_color(rating_button[rating])
     filter_settings['rating'] = [rating for rating in rating_names if rating_button[rating].cget('bg') == 'black']
-
 def filter_by_year(year):
     toggle_button_color(year_button[year])
     filter_settings['year'] = [year for year in year_buttons if year_button[year].cget('bg') == 'black']
-
 def filter_by_ott(ott_service):
     toggle_button_color(ott_button[ott_service])
     filter_settings['ott'] = [service for service in ott_list if ott_button[service].cget('bg') == 'black']
-
 def toggle_button_color(button):
     current_bg = button.cget('bg')
     button.config(bg=button.cget('fg'), fg=current_bg)
-
 def generate_recommendations(limit=max_row):
     result_label.config(text="Recommendation Results")
 
@@ -92,7 +88,6 @@ def generate_recommendations(limit=max_row):
         result_text.insert(tk.END, "\n\n")
 
     result_text.config(state=tk.DISABLED)
-
 def search_movies(limit=max_row):
     result_label.config(text="Search Results", fg='white')
 
@@ -159,13 +154,11 @@ def search_movies(limit=max_row):
         result_text.insert(tk.END, "\n\n")
 
     result_text.config(state=tk.DISABLED)
-
 def clear_search():
     search_var.set("")
     result_text.config(state=tk.NORMAL)
     generate_recommendations()
     result_text.config(state=tk.DISABLED)
-
 def open_detail_window(movie_id):
     query = f'{basic_select}, m.last_update, m.description\n{basic_from}\nWHERE m.movie_id = %s GROUP BY m.movie_id'
 
@@ -177,7 +170,7 @@ def open_detail_window(movie_id):
     detail_window.title(f"Details for Movie ID: {movie_id}")
     detail_window.configure(bg='white')
 
-    detail_text = tk.Text(detail_window, font=basic_font(12), bg='white', fg='black')
+    detail_text = tk.Text(detail_window, font=('Input Mono',12,'bold'), bg='white', fg='black')
     detail_text.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
     detail_text.insert(tk.END, f"{print_format(movie_details, 10)}"
                                f"Last Update: {'no info' if str(movie_details[9]) == '1970-01-01' else movie_details[9]}"
@@ -185,9 +178,8 @@ def open_detail_window(movie_id):
     detail_text.config(state=tk.DISABLED)
 
     delete_button = tk.Button(detail_window, text="Delete", command=lambda mid=movie_id: delete_movie(mid),
-                              bg='white', fg='black', bd=3, relief=tk.RAISED, font=basic_font(12))
+                              bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Input Mono',12,'bold'))
     delete_button.pack(side=tk.RIGHT, anchor=tk.SE, pady=10, padx=10)
-
 def delete_movie(movie_id):
     table_list = ['movies', 'direct', 'cast', 'movies_genre', 'movies_country']
     for i in table_list:
@@ -197,7 +189,6 @@ def delete_movie(movie_id):
     messagebox.showinfo("Movie Deleted", f"Movie with ID {movie_id} has been deleted.")
 
     detail_window.destroy()
-
 def open_category_window():
     category_window = tk.Toplevel(root)
     category_window.title("Select Categories")
@@ -228,25 +219,23 @@ def open_category_window():
     for category_name in category_button_names:
         category_buttons[category_name] = tk.Button(
             category_window, text=category_name, command=lambda category=category_name: toggle_category(category),
-            width=15, height=2, bg='white', fg='black', bd=3, relief=tk.RAISED, font=basic_font(10)
+            width=15, height=2, bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Input Mono',10,'bold')
         )
         category_buttons[category_name].pack(pady=5)
 
     select_button = tk.Button(
         category_window, text="Select", command=select_categories,
-        width=15, height=2, bg='white', fg='black', bd=3, relief=tk.RAISED, font=basic_font(10)
+        width=15, height=2, bg='white', fg='black', bd=3, relief=tk.RAISED, font=('Input Mono',10,'bold')
     )
     select_button.pack(side=tk.RIGHT, padx=10, pady=10)
-
 def open_title_window():
     title_window = tk.Toplevel(root)
     title_window.title("Details")
     title_window.bind('<Control-BackSpace>', lambda event: title_window.destroy())
 
-    text_label = tk.Label(title_window, font=basic_font(12),
+    text_label = tk.Label(title_window, font=('Input Mono',12,'bold'),
                           text="HAND-MOVIE\n\nMade by Group 2\nGaeun Seo, Imafuku Kokoro, Kyunam Park")
     text_label.pack(padx=20, pady=20)
-
 def open_rating_window(rating=None):
     rating_window = tk.Toplevel(root)
     rating_window.title(f"About Ratings")
@@ -256,7 +245,7 @@ def open_rating_window(rating=None):
     lines = f.read()
     f.close()
     
-    text_label = tk.Label(rating_window, font=basic_font(12), text=lines)
+    text_label = tk.Label(rating_window, font=('Input Mono',12,'bold'), text=lines)
     text_label.pack(padx=20, pady=20)
 
 # root window
@@ -297,7 +286,7 @@ search_button = tk.Button(title_frame, command=search_movies, text="Search", bg=
                           relief=tk.RAISED, font=('Input Mono',12,'bold'))
 search_button.pack(side=tk.LEFT)
 
-# clear button
+# clear + Recommendation button
 clear_button = tk.Button(title_frame, command=clear_search, text="Clear", bg='white', fg='black', bd=3,
                          relief=tk.RAISED, font=('Input Mono',12,'bold'))
 clear_button.pack(side=tk.RIGHT, padx=10)
@@ -318,9 +307,8 @@ rating_label.pack(pady = 3)
 rating_label.bind('<Button-1>', open_rating_window)
 root.bind('<Control-g>', lambda event: open_rating_window())
 
-rating_names = ['G', 'PG', 'PG-13', 'R', 'NC-17']
-
 # rating buttons
+rating_names = ['G', 'PG', 'PG-13', 'R', 'NC-17']
 rating_button = {}
 for rating in rating_names:
     rating_button[rating] = tk.Button(rating_frame, text=rating, width=button_width, bg='white', fg='black', bd=3,
