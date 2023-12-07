@@ -15,7 +15,7 @@ filter_settings = {
     'year': [],
     'ott': []}
 year_ranges = {
-    '1900s': (1971, 1999),
+    '1900s': (1900, 1999),
     '2000s': (2000, 2009),
     '2010s': (2010, 2019),
     '2020s': (2020, 2029),}
@@ -35,10 +35,6 @@ LEFT JOIN ott_service ON m.ott_id = ott_service.ott_id'''
 max_row = 30
 button_width = 12
 
-def print_format(row, num):
-    # printing format of recommendation and search results
-    query = f"Title: {row[1]}\nDirectors: {row[2]}\nActors: {row[3]}\nGenres: {row[4]}\nRelease Year: {row[5]}\nRating: {row[6]}\nDuration: {row[7]} min\nOTT Service: {row[8]}\n"
-    return query.replace('\n', '\n\n') if num == 10 else query
 def filter_by_rating(rating):
     toggle_button_color(rating_button[rating])
     filter_settings['rating'] = [rating for rating in rating_names if rating_button[rating].cget('bg') == 'black']
@@ -69,6 +65,11 @@ def generate_recommendations(limit=max_row):
     if filter_settings['ott']:
         where_conditions.append(f"ott_service.ott_service IN ({','.join(map(repr, filter_settings['ott']))})")
 
+    where_conditions.append(f"m.title != 'no info'")
+    where_conditions.append(f"m.duration != 0")
+    where_conditions.append(f"m.rating != 'no info'")
+    where_conditions.append(f"m.release_year != 0")
+    
     where_clause = " AND ".join(where_conditions)
     where_clause = f"WHERE {where_clause}" if where_clause else ""
 
@@ -81,8 +82,14 @@ def generate_recommendations(limit=max_row):
     result_text.delete("1.0", tk.END)
 
     for row in result:
-        result_text.insert(tk.END, print_format(row, 8))
-
+        result_text.insert(tk.END, f"Title: {row[1]}\n"
+                           f"Directors: {row[2]}\n"
+                           f"Actors: {row[3]}\n"
+                           f"Genres: {row[4]}\n"
+                           f"Release Year: {row[5] if row[5] != 0 else 'no info'}\n"
+                           f"Rating: {row[6]}\n"
+                           f"Duration: {str(row[7])+' min' if row[7] != 0 else 'no info'}\n"
+                           f"OTT Service: {row[8]}\n")
         detail_button = tk.Button(result_text, text="Detail", command=lambda mid=row[0]: open_detail_window(mid))
         result_text.window_create(tk.END, window=detail_button)
         result_text.insert(tk.END, "\n\n")
@@ -147,7 +154,14 @@ def search_movies(limit=max_row):
     result_text.delete("1.0", tk.END)
 
     for row in result:
-        result_text.insert(tk.END, print_format(row, 8))
+        result_text.insert(tk.END, f"Title: {row[1]}\n"
+                           f"Directors: {row[2]}\n"
+                           f"Actors: {row[3]}\n"
+                           f"Genres: {row[4]}\n"
+                           f"Release Year: {row[5] if row[5] != 0 else 'no info'}\n"
+                           f"Rating: {row[6]}\n"
+                           f"Duration: {str(row[7])+' min' if row[7] != 0 else 'no info'}\n"
+                           f"OTT Service: {row[8]}\n")
 
         detail_button = tk.Button(result_text, text="Detail", command=lambda mid=row[0]: open_detail_window(mid))
         result_text.window_create(tk.END, window=detail_button)
@@ -172,9 +186,16 @@ def open_detail_window(movie_id):
 
     detail_text = tk.Text(detail_window, font=('Input Mono',12,'bold'), bg='white', fg='black')
     detail_text.pack(expand=True, fill=tk.BOTH, padx=10, pady=10)
-    detail_text.insert(tk.END, f"{print_format(movie_details, 10)}"
-                               f"Last Update: {'no info' if str(movie_details[9]) == '1970-01-01' else movie_details[9]}"
-                               f"\n\nDescription: {movie_details[10]}")
+    detail_text.insert(tk.END, f"Title: {movie_details[1]}\n\n"
+                       f"Directors: {movie_details[2]}\n\n"
+                       f"Actors: {movie_details[3]}\n\n"
+                       f"Genres: {movie_details[4]}\n\n"
+                       f"Release Year: {movie_details[5] if movie_details[5] != 0 else 'no info'}\n\n"
+                       f"Rating: {movie_details[6]}\n\n"
+                       f"Duration: {str(movie_details[7])+' min' if movie_details[7] != 0 else 'no info'}\n\n"
+                       f"OTT Service: {movie_details[8]}\n\n"
+                       f"Last Update: {'no info' if str(movie_details[9]) == '1970-01-01' else movie_details[9]}\n\n"
+                       f"Description: {movie_details[10]}")
     detail_text.config(state=tk.DISABLED)
 
     delete_button = tk.Button(detail_window, text="Delete", command=lambda mid=movie_id: delete_movie(mid),
@@ -206,8 +227,7 @@ def open_category_window():
         for category_name in category_buttons:
             category_buttons[category_name].config(
                 bg='black' if category_name in filter_settings['categories'] else 'white',
-                fg='white' if category_name in filter_settings['categories'] else 'black'
-            )
+                fg='white' if category_name in filter_settings['categories'] else 'black')
 
     def select_categories():
         category_button.config(text='\n'.join(filter_settings['categories'])) if filter_settings['categories'] else category_button.config(text='Category')
@@ -315,6 +335,7 @@ for rating in rating_names:
                                       command=lambda rating=rating: filter_by_rating(rating), relief=tk.RAISED,
                                       font=('Input Mono',10,'bold'))
     rating_button[rating].pack()
+
 # shortcut for rating buttons
 root.bind('<Control-q>', lambda event: toggle_button_color(rating_button['G']))
 root.bind('<Control-w>', lambda event: toggle_button_color(rating_button['PG']))
@@ -332,7 +353,7 @@ release_label = tk.Label(release_frame, text="Release Year", font=('Input Mono',
 release_label.pack()
 
 # release year buttons
-# 1900s = 1971 ~ 1999, 2000s = 2000 ~ 2009, 2010s = 2010 ~ 2019, 2020s = 2020 ~ 2029
+# 1900s = 1900 ~ 1999, 2000s = 2000 ~ 2009, 2010s = 2010 ~ 2019, 2020s = 2020 ~ 2029
 year_buttons = ['1900s', '2000s', '2010s', '2020s']
 year_button = {}
 for year in year_buttons:
