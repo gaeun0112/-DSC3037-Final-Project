@@ -1,3 +1,6 @@
+2023-2학기에 수강한 관계형데이터베이스개론 Final Project입니다.
+
+
 ## Guidline
 
 
