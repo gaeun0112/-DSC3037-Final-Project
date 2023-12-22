@@ -1,0 +1,5 @@
+pandas
+numpy
+tqdm
+mysql-connector-python
+tk
