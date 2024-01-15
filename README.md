@@ -4,6 +4,9 @@
 ## Guidline
 
 
+python version : 3.12.0
+
+
 
 1. execute `group2-dp-dump.sql file`
 
